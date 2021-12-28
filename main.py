@@ -94,6 +94,8 @@ def read_message(message_path, encoding='utf-8'):
         '>',
         '|>',
         ':',
+        '--',
+        '* ',
     ]
 
     wrong_lines_end = [
@@ -129,8 +131,11 @@ def clean_text(text):
     for word in re.split(r'\W+', text):
         word = word.lower()
         if word and word.isalpha() \
-                and word not in nltk.corpus.stopwords.words('english'):
-            word_list.append(lemmatizer.lemmatize(word))
+                and word not in nltk.corpus.stopwords.words('english') \
+                and len(word) > 1:
+            lemmatized_word = lemmatizer.lemmatize(word)
+            if len(lemmatized_word) > 1:
+                word_list.append(lemmatized_word)
 
     return word_list
 
