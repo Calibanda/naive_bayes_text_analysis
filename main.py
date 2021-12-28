@@ -18,44 +18,53 @@ TRAINING_DIRECTORY = pathlib.Path('20news-bydate/20news-bydate-train/')
 TESTING_DIRECTORY = pathlib.Path('20news-bydate/20news-bydate-test/')
 
 
-def get_training_set(
-        categories: list[str],
+def get_dataset(
+        dataset_directory: pathlib.Path,
+        dataset_filename: str,
         get_from_disk: bool = True
 ) -> pandas.DataFrame:
 
     if get_from_disk:
         try:
-            with open('training_set.csv', 'r') as f:
-                training_set = pandas.read_csv(
+            with open(dataset_filename, 'r') as f:
+                dataset = pandas.read_csv(
                     f,
                     converters={'text': lambda x: x[2:-2].split("', '")}
                 )
-            return training_set
+                dataset.rename(
+                    columns={'Unnamed: 0': 'index'},
+                    inplace=True
+                )
+                dataset.set_index('index', inplace=True)
+            return dataset
         except FileNotFoundError:
             pass
 
-    training_set = pandas.DataFrame(columns=['label', 'text'])
+    categories = [p.name for p in dataset_directory.iterdir()]
+    categories.sort()
+
+    dataset = pandas.DataFrame(columns=['label', 'text'])
 
     for category in categories:
         logging.info(f'Collecting {category}...')
-        category_path = TRAINING_DIRECTORY / category
+        category_path = dataset_directory / category
         files_path = list(category_path.iterdir())
         files_path.sort()
         for message_path in files_path:
             message = read_message(message_path)
             word_list = clean_text(message)
             if word_list:  # if word_list is not empty
-                training_set = training_set.append(
+                dataset = dataset.append(
                     {'label': category, 'text': word_list},
                     ignore_index=True
                 )
 
     # save sets for future use
-    logging.info('Save training_set.csv on disk.')
-    with open('training_set.csv', 'w') as f:
-        f.write(training_set.to_csv())
+    logging.info(f'Save {dataset_filename} on disk.')
+    with open(dataset_filename, 'w') as f:
+        f.write(dataset.to_csv())
 
-    return training_set
+    return dataset
 
 
 def read_message(message_path, encoding='utf-8'):
@@ -222,29 +231,37 @@ def training() -> pandas.DataFrame:
            probabilities
     """
 
-    categories = [p.name for p in TRAINING_DIRECTORY.iterdir()]
-    categories.sort()
+    training_set = get_dataset(TRAINING_DIRECTORY, 'training_set.csv')
 
-    training_set = get_training_set(categories)
-
+    logging.debug(f'{training_set.shape=}')
     logging.debug(training_set.head())
-    logging.debug(training_set.shape)
 
     word_count_per_category = get_word_count(training_set)
 
+    logging.debug(f'{word_count_per_category.shape=}')
     logging.debug(word_count_per_category.head())
-    logging.debug(word_count_per_category.shape)
 
     probabilities = get_probabilities(word_count_per_category)
 
+    logging.debug(f'{probabilities.shape=}')
     logging.debug(probabilities.head())
-    logging.debug(probabilities.shape)
 
     return probabilities
 
 
+def testing(trained_model: pandas.DataFrame) -> None:
+    categories = [p.name for p in TESTING_DIRECTORY.iterdir()]
+    categories.sort()
+
+    testing_set = get_dataset(TESTING_DIRECTORY, 'testing_set.csv')
+
+    logging.debug(f'{testing_set.shape=}')
+    logging.debug(testing_set.head())
+
+
 def main():
     trained_model = training()
+    testing(trained_model)
 
 
 if __name__ == '__main__':
