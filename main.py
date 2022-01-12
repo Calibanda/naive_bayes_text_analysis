@@ -1,7 +1,20 @@
 #!/usr/bin/env python3
-"""DESCRIPTION OF THE PROGRAM
+"""Naive Bayes classifier on the 20 Newsgroups data set.
 
-(C) 2021 Clément SEIJIDO
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
+Copyright 2022, Clément SEIJIDO
 Released under GNU General Public License v3.0 (GNU GPLv3)
 e-mail clement@seijido.fr
 """
@@ -29,7 +42,17 @@ TRAINING_DIRECTORY = pathlib.Path('20news-bydate/20news-bydate-train/')
 TESTING_DIRECTORY = pathlib.Path('20news-bydate/20news-bydate-test/')
 
 
-def read_message(message_path, encoding='utf-8'):
+def read_message(message_path: str | pathlib.Path, encoding='utf-8') -> str:
+    """Read a 20 Newsgroups message and remove headers and useless lines.
+
+    Args:
+        message_path (str | pathlib.Path): path of the file.
+        encoding (str): encoding of the file. Default 'utf-8'.
+
+    Returns:
+        str: the 20 Newsgroups message.
+    """
+
     wrong_lines_start = (
         'From:',
         'Subject:',
@@ -83,7 +106,18 @@ def read_message(message_path, encoding='utf-8'):
         return read_message(message_path, encoding='iso-8859-1')
 
 
-def clean_text(text):
+def tokenize_text(text: str) -> list[str]:
+    """Tokenize and clean a given text: remove stop words, non alpha words, and
+    words with length lower than 2. All words are also lemmatized
+    (reduced to their lemma).
+
+    Args:
+        text (str): text to clean and tokenize.
+
+    Returns:
+        list[str]: cleaned words of the text.
+    """
+
     lemmatizer = nltk.stem.WordNetLemmatizer()
     word_list = []  # create a list of words
     for word in re.split(r'\W+', text):
@@ -99,15 +133,14 @@ def clean_text(text):
 
 
 def training() -> pandas.DataFrame:
-    """For all categories
-         For all files
-           remove stop words
-           lemmatisation
-           vectorisation
-           probabilities
+    """Collect 20 Newsgroups messages and create a model of all words
+    apparition probabilities given Newsgroups categories.
+
+    Returns:
+        pandas.DataFrame: naive Bayes probability model.
     """
 
-    try:
+    try:  # If the model is on the disk, load it
         with open('trained_model.csv', 'r') as f:
             model = pandas.read_csv(f)
             model.set_index('words', inplace=True)
@@ -135,7 +168,7 @@ def training() -> pandas.DataFrame:
         category_word_list = []
         for message_path in files_path:
             message = read_message(message_path)
-            category_word_list += clean_text(message)
+            category_word_list += tokenize_text(message)
 
         category_counter = collections.Counter(category_word_list)
         model = pandas.concat(
@@ -148,7 +181,7 @@ def training() -> pandas.DataFrame:
     model.index.name = 'words'
 
     # apply Laplace smoothing and compute probabilities
-    model.fillna(0, inplace=True)  # replace NaN by 1
+    model.fillna(0, inplace=True)  # replace NaN by 0
     model += 1
     for category in categories:
         model[category] = model[category] / n_words[category]
@@ -164,9 +197,23 @@ def training() -> pandas.DataFrame:
     return model
 
 
-def classify_message(message, trained_model: pandas.DataFrame) -> list:
+def classify_message(
+        message: str | list[str],
+        trained_model: pandas.DataFrame
+) -> list[tuple[str, int]]:
+    """Classify a message with the Bayes formula given a proper trained model.
+
+    Args:
+        message (str | list[str]): a message or a list of tokenized words.
+        trained_model (pandas.DataFrame): the trained model with all words
+            apparition probabilities.
+
+    Returns:
+        list[tuple[str, int]]: the classification probabilities sorted.
+    """
+
     if isinstance(message, str):
-        message = clean_text(message)
+        message = tokenize_text(message)
 
     occurrences = collections.Counter(message)
 
@@ -190,7 +237,16 @@ def classify_message(message, trained_model: pandas.DataFrame) -> list:
     return probabilities
 
 
-def testing(trained_model: pandas.DataFrame) -> dict:
+def testing(trained_model: pandas.DataFrame) -> dict[str, int]:
+    """Test a naive Bayes model on 20 Newsgroups messages
+
+    Args:
+        trained_model (pandas.DataFrame): the trained model with all words
+            apparition probabilities.
+    Returns:
+        dict[str, int]: the quality of the model: {'correct': X, 'total': X}
+    """
+
     categories = [p.name for p in TESTING_DIRECTORY.iterdir()]
     categories.sort()
 
@@ -215,12 +271,12 @@ def testing(trained_model: pandas.DataFrame) -> dict:
 def main():
     trained_model = training()
     quality = testing(trained_model)
-    print('Accuracy:', round(quality['correct']/quality['total'], 4))
+    logging.info('Accuracy:', round(quality['correct']/quality['total'], 4))
 
 
 if __name__ == '__main__':
     logging.basicConfig(
-        level=logging.DEBUG,
+        level=logging.INFO,
         format='%(message)s'
     )
     main()
