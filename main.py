@@ -30,7 +30,7 @@ TESTING_DIRECTORY = pathlib.Path('20news-bydate/20news-bydate-test/')
 
 
 def read_message(message_path, encoding='utf-8'):
-    wrong_lines_start = [
+    wrong_lines_start = (
         'From:',
         'Subject:',
         'X-Xxmessage-Id:',
@@ -58,27 +58,23 @@ def read_message(message_path, encoding='utf-8'):
         ':',
         '--',
         '* ',
-    ]
+    )
 
-    wrong_lines_end = [
+    wrong_lines_end = (
         'writes:',
         'wrote:',
-    ]
+    )
 
     message = ''
     try:
         with open(message_path, 'r', encoding=encoding) as f:
+            while f.readline() != '\n':  # skip headers
+                pass
+
             for line in f:
                 line = line.strip()
-                good_line = True
-                for start in wrong_lines_start:
-                    if line.startswith(start):
-                        good_line = False
-                for end in wrong_lines_end:
-                    if line.endswith(end):
-                        good_line = False
-
-                if good_line:
+                if not line.startswith(wrong_lines_start) \
+                        and not line.endswith(wrong_lines_end):
                     message += line + '\n'
 
         return message
