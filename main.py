@@ -20,13 +20,13 @@ e-mail clement@seijido.fr
 """
 
 import logging
-import math
 import re
 import pathlib
 import collections
 
-import nltk
+import numpy as np
 import pandas
+import nltk
 
 pandas.set_option('display.max_columns', None)  # df.head() display all columns
 
@@ -142,6 +142,7 @@ def training() -> pandas.DataFrame:
 
     try:  # If the model is on the disk, load it
         with open('trained_model.csv', 'r') as f:
+            logging.info('Collect model from disk.')
             model = pandas.read_csv(f)
             model.set_index('words', inplace=True)
 
@@ -159,8 +160,8 @@ def training() -> pandas.DataFrame:
     model = pandas.DataFrame()
     n_words = {}
 
-    for category in categories:
-        logging.info(f'Collecting {category}...')
+    for index, category in enumerate(categories):
+        logging.info(f'Collecting {category} ({index+1}/{len(category)})...')
         category_path = TRAINING_DIRECTORY / category
         files_path = list(category_path.iterdir())
         files_path.sort()
@@ -180,17 +181,19 @@ def training() -> pandas.DataFrame:
     model.sort_index(inplace=True)
     model.index.name = 'words'
 
-    # apply Laplace smoothing and compute probabilities
+    # apply Laplace smoothing, compute probabilities and get log10
     model.fillna(0, inplace=True)  # replace NaN by 0
     model += 1
     for category in categories:
         model[category] = model[category] / n_words[category]
 
+    model = np.log10(model)
+
     logging.debug(f'{model.shape=}')
     logging.debug(model)
 
     # save model for future use
-    logging.info(f'Save model on disk.')
+    logging.info('Save model on disk.')
     with open('trained_model.csv', 'w') as f:
         f.write(model.to_csv())
 
@@ -199,13 +202,13 @@ def training() -> pandas.DataFrame:
 
 def classify_message(
         message: str | list[str],
-        trained_model: pandas.DataFrame
+        model: pandas.DataFrame
 ) -> list[tuple[str, int]]:
     """Classify a message with the Bayes formula given a proper trained model.
 
     Args:
         message (str | list[str]): a message or a list of tokenized words.
-        trained_model (pandas.DataFrame): the trained model with all words
+        model (pandas.DataFrame): the trained model with all words
             apparition probabilities.
 
     Returns:
@@ -217,14 +220,12 @@ def classify_message(
 
     occurrences = collections.Counter(message)
 
-    probabilities = {category: 0 for category in trained_model.columns}
+    probabilities = {category: 0 for category in model.columns}
 
-    for category in trained_model.columns:
+    for category in model.columns:
         for word, count in occurrences.items():
             try:
-                probabilities[category] += math.log10(
-                    trained_model[category].loc[word]
-                ) * count
+                probabilities[category] += model[category].loc[word] * count
             except KeyError:  # word is not in training model
                 pass
 
@@ -252,8 +253,8 @@ def testing(trained_model: pandas.DataFrame) -> dict[str, int]:
 
     quality = {'correct': 0, 'total': 0}
 
-    for category in categories:
-        logging.info(f'Testing with {category}...')
+    for index, category in enumerate(categories):
+        logging.info(f'Testing on {category} ({index+1}/{len(category)})...')
         category_path = TESTING_DIRECTORY / category
         files_path = list(category_path.iterdir())
         files_path.sort()
@@ -271,12 +272,14 @@ def testing(trained_model: pandas.DataFrame) -> dict[str, int]:
 def main():
     trained_model = training()
     quality = testing(trained_model)
-    logging.info('Accuracy:', round(quality['correct']/quality['total'], 4))
+    logging.info(
+        'Accuracy: ' + str(round(quality['correct']/quality['total'], 4))
+    )
 
 
 if __name__ == '__main__':
     logging.basicConfig(
         level=logging.INFO,
-        format='%(message)s'
+        format='%(asctime)s %(message)s'
     )
     main()
