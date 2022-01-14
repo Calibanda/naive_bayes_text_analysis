@@ -161,7 +161,7 @@ def training() -> pandas.DataFrame:
     n_words = {}
 
     for index, category in enumerate(categories):
-        logging.info(f'Collecting {category} ({index+1}/{len(category)})...')
+        logging.info(f'Collecting {category} ({index+1}/{len(categories)})...')
         category_path = TRAINING_DIRECTORY / category
         files_path = list(category_path.iterdir())
         files_path.sort()
@@ -254,7 +254,7 @@ def testing(trained_model: pandas.DataFrame) -> dict[str, int]:
     quality = {'correct': 0, 'total': 0}
 
     for index, category in enumerate(categories):
-        logging.info(f'Testing on {category} ({index+1}/{len(category)})...')
+        logging.info(f'Testing on {category} ({index+1}/{len(categories)})...')
         category_path = TESTING_DIRECTORY / category
         files_path = list(category_path.iterdir())
         files_path.sort()
