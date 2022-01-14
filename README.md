@@ -43,18 +43,13 @@ Install needed packages with:
 pip install -r requirements.txt
 ```
 
-### Move ```nltk_data/```
+### Install nltk_data
 
-Move the directory ```nltk_data/``` in one of those directories:
+Install nltk_data with the command:
 
-- ~/
-- .venv/
-- .venv/share/
-- .venv/lib/
-- /usr/share/
-- /usr/local/share/
-- /usr/lib/
-- /usr/local/lib/
+```bash
+python -m nltk.downloader -d .venv/nltk_data/ stopwords wordnet omw-1.4
+```
 
 
 ## Running the program
